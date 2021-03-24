@@ -16,6 +16,7 @@
 
 package reactor.core.publisher;
 
+import java.nio.channels.CompletionHandler;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Iterator;
@@ -607,6 +608,47 @@ public abstract class Mono<T> implements CorePublisher<T> {
 		//we delegate to `wrap` and apply assembly hooks
 		@SuppressWarnings("unchecked") Publisher<I> downcasted = (Publisher<I>) source;
 		return onAssembly(wrap(downcasted, false));
+	}
+
+
+	/**
+	 * Create a {@link Mono} that wraps a consumer of a {@link CompletionHandler} on
+	 * subscription, emitting the value received by the {@link CompletionHandler}.
+	 *
+	 * <p>
+	 * <img class="marble" src="doc-files/marbles/fromFutureSupplier.svg" alt="">
+	 *
+	 * @param execute The {@link Consumer} of a {@link CompletionHandler} that will
+	 *                receive a value or exception. This allows lazy triggering of
+	 *                CompletionHandler-based channel APIs.
+	 * @param <T>     type of the expected value
+	 * @return A {@link Mono}.
+	 */
+	public static <T> Mono<T> fromCompletionHandler(Consumer<CompletionHandler<T, Void>> execute) {
+		return fromCompletionHandler((Void) null, (attachment, handler) -> execute.accept(handler));
+	}
+
+	/**
+	 * Create a {@link Mono} that wraps a consumer of a {@link CompletionHandler}
+	 * with an additional attachment object on subscription, emitting the value
+	 * received by the {@link CompletionHandler}.
+	 * <p>
+	 * The reference to the attachment is passed into the {@link BiConsumer} on
+	 * subscription. If not null, it is attached to the {@link Context} with the key
+	 * {@link MonoCompletionHandler#ATTACHMENT_KEY}
+	 * <p>
+	 * <img class="marble" src="doc-files/marbles/fromFutureSupplier.svg" alt="">
+	 *
+	 * @param execute The {@link BiConsumer} of an attachment and
+	 *                {@link CompletionHandler} that will receive a value or
+	 *                exception. This allows lazy triggering of
+	 *                CompletionHandler-based channel APIs.
+	 * @param <T>     type of the expected value
+	 * @param <A>     type of the attachment value
+	 * @return A {@link Mono}.
+	 */
+	public static <T, A> Mono<T> fromCompletionHandler(A attachment, BiConsumer<A, CompletionHandler<T, A>> execute) {
+		return onAssembly(new MonoCompletionHandler<T, A>(attachment, execute));
 	}
 
 	/**
